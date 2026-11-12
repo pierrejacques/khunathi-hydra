@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oasis Control</title>
+<style>
+  :root {
+    --bg: #0e0e12; --card: #17171d; --line: #2c2c36; --text: #ececf2; --muted: #9a9aa8;
+    --accent: #6ee7c8; --accent-ink: #062b22; --warn: #ffc56e; --err: #ff7a7a; --done: #5b5b68;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: .06em; }
+  .pill { padding: 3px 10px; border-radius: 999px; font-size: 13px; border: 1px solid var(--line); }
+  .pill.ok { color: var(--accent); border-color: var(--accent); }
+  .pill.bad { color: var(--err); border-color: var(--err); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .spacer { flex: 1; }
+  button { background: #24242c; color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 14px; font: inherit; cursor: pointer; }
+  button:hover { border-color: #55555f; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .main { display: grid; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .now-top { display: flex; align-items: flex-start; gap: 16px; }
+  #song-title { font-size: 34px; font-weight: 700; margin: 2px 0 0; line-height: 1.2; }
+  #scene-line { color: var(--muted); margin-top: 4px; }
+  #song-timer { font-variant-numeric: tabular-nums; font-size: 40px; font-weight: 700; line-height: 1.1; }
+  #tempo { color: var(--muted); font-variant-numeric: tabular-nums; }
+  ul.steps { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }
+  ul.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
+  ul.steps li:first-child { border-top: none; padding-top: 0; }
+  ul.steps .head { font-weight: 650; }
+  ul.steps .at { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  ul.steps .when { display: block; color: var(--warn); }
+  ul.steps .does { display: block; color: var(--muted); font-size: 14px; }
+  ul.steps .tip { display: block; color: var(--accent); font-size: 14px; }
+  ul.steps li.done { color: var(--done); }
+  ul.steps li.done .when, ul.steps li.done .does { color: var(--done); }
+  ul.steps li.live > span:first-child, ul.steps li.live .head { color: var(--accent); }
+  ul.steps li.next .head { color: var(--text); }
+  ul.steps li.next > span:first-child { color: var(--accent); }
+  #go { width: 100%; min-height: 128px; border-radius: 14px; border: none; background: var(--accent);
+    color: var(--accent-ink); text-align: left; padding: 16px 22px; display: grid; gap: 4px; }
+  #go:disabled { background: #2a2a33; color: var(--muted); cursor: default; }
+  #go .k { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; opacity: .8; }
+  #go .what { font-size: 26px; font-weight: 700; line-height: 1.2; }
+  #go .when { font-size: 17px; }
+  #go kbd { background: rgba(0, 0, 0, 0.15); color: inherit; }
+  #go:disabled kbd { background: #34343e; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #blackout.on { background: var(--err); color: #2b0606; border-color: var(--err); }
+  input[type=range] { accent-color: var(--accent); width: 200px; max-width: 100%; }
+  #setlist { display: grid; gap: 8px; margin-top: 10px; }
+  .song { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .song.now { border-color: var(--accent); }
+  .song.done { opacity: .55; }
+  .song-head { display: flex; align-items: baseline; gap: 8px; }
+  .song-head b { font-size: 17px; }
+  .song-head .st { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .song.now .song-head .st { color: var(--accent); }
+  .song .scenes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .song .scenes button { font-size: 13px; padding: 4px 9px; }
+  .song .scenes button.on { border-color: var(--accent); color: var(--accent); }
+  .side { display: grid; gap: 14px; }
+  .fx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+  .fx-grid button { text-align: left; padding: 7px 10px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .fx-grid button.screen { border-style: dashed; }
+  .fx-grid button.on { background: var(--warn); color: #2b1d02; border-color: var(--warn); border-style: solid; }
+  .fx-grid button.on kbd { background: rgba(0, 0, 0, 0.18); color: inherit; }
+  #error { color: var(--err); }
+  .hint { color: var(--muted); font-size: 13px; }
+  kbd { background: #2a2a33; border-radius: 4px; padding: 0 5px; font-size: 12px; }
+  @media (max-width: 640px) { #song-title { font-size: 26px; } #song-timer { font-size: 30px; } #go .what { font-size: 20px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>OASIS · SHOW CONTROL</h1>
+    <span id="status" class="pill bad">Output not connected</span>
+    <span class="spacer"></span>
+    <button id="open">Open output window</button>
+  </header>
+
+  <div id="error"></div>
+
+  <div class="layout">
+    <div class="main">
+      <section class="card">
+        <div class="now-top">
+          <div style="flex:1; min-width:0">
+            <div class="label" id="song-label">Song</div>
+            <div id="song-title">—</div>
+            <div id="scene-line"></div>
+          </div>
+          <div style="text-align:right">
+            <div class="label">Song time</div>
+            <div id="song-timer">0:00</div>
+            <div id="tempo"></div>
+          </div>
+        </div>
+        <ul class="steps" id="steps"></ul>
+      </section>
+
+      <button id="go" disabled>
+        <span class="k">Next · press <kbd>Space</kbd></span>
+        <span class="what" id="go-what">Open the output window first</span>
+        <span class="when" id="go-when"></span>
+      </button>
+
+      <section class="card row">
+        <button id="blackout">Blackout <kbd>B</kbd></button>
+        <label class="row" style="gap:8px">Brightness <input id="master" type="range" min="0" max="1" step="0.01" value="1"></label>
+        <span class="spacer"></span>
+        <button id="restart">Restart this scene</button>
+      </section>
+    </div>
+
+    <aside class="side">
+      <section class="card">
+        <div class="label">Live FX · on top of the cues</div>
+        <div id="fx" class="fx-grid"></div>
+        <div class="row" style="margin-top:10px; gap:8px">
+          <label class="row" style="gap:6px; flex:1">Amount <input id="fx-amount" type="range" min="0" max="2" step="0.01" value="1" style="width:auto; flex:1"></label>
+          <button id="fx-off">All off <kbd>X</kbd></button>
+        </div>
+        <div class="hint" id="fx-hint" style="margin-top:6px"></div>
+      </section>
+      <section class="card">
+        <div class="label">Setlist · click a scene to jump there</div>
+        <div id="setlist"></div>
+      </section>
+    </aside>
+  </div>
+
+  <p class="hint">
+    Setup: click <b>Open output window</b>, move it to the projector screen if needed, click it once and press <kbd>F</kbd>
+    (or double-click it) for fullscreen. Then come back here — everything runs from this window.
+  </p>
+</div>
+
+<script src="js/scenes.js"></script>
+<script src="js/livefx.js"></script>
+<script>
+const channel = new BroadcastChannel('oasis-show');
+const $ = (id) => document.getElementById(id);
+
+// What the control wants on screen (re-sent if the output window reloads). Starts on the pre-show.
+const want = { song: -1, scene: 0, blackout: false, master: 1, fx: {}, fxAmount: 1 };
+let out = null, lastSeen = 0, lastGo = 0;
+
+const connected = () => out && performance.now() - lastSeen < 1500;
+const fmt = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const stepIndex = (song, scene) => STEPS.findIndex(s => s.song === song && s.scene === scene);
+
+// index into STEPS of what's on screen (-1 = nothing yet)
+const position = () => (connected() ? stepIndex(out.song, out.scene) : -1);
+
+channel.onmessage = ({ data }) => {
+  if (data.type === 'state') {
+    out = data; lastSeen = performance.now();
+    if (out.song === -2 && !out.loading) restore();   // output is up but showing nothing yet
+    render();
+  }
+  else if (data.type === 'hello') restore();
+};
+
+// output window (re)opened: restore what should be showing
+let lastRestore = 0;
+function restore() {
+  if (performance.now() - lastRestore < 1000) return;
+  lastRestore = performance.now();
+  channel.postMessage({ type: 'master', value: want.master });
+  channel.postMessage({ type: 'blackout', on: want.blackout });
+  channel.postMessage({ type: 'fxAll', on: want.fx });
+  channel.postMessage({ type: 'fxAmount', value: want.fxAmount });
+  channel.postMessage({ type: 'goto', song: want.song, scene: want.scene, force: true });
+}
+
+// ---- live FX ----
+function setFx(id, on) {
+  want.fx[id] = on;
+  channel.postMessage({ type: 'fx', id, on });
+  renderFx();
+}
+function allFxOff() {
+  want.fx = {};
+  channel.postMessage({ type: 'fxAll', on: {} });
+  renderFx();
+}
+function renderFx() {
+  document.querySelectorAll("#fx button").forEach(b => b.classList.toggle("on", !!want.fx[b.dataset.id]));
+  const active = LIVE_FX.filter(f => want.fx[f.id]).map(f => f.label);
+  $('fx-hint').textContent = active.length ? `On: ${active.join(', ')}` : 'Keys 1–0 toggle. Dashed = whole screen, others act on the foregrounds.';
+}
+LIVE_FX.forEach(f => {
+  const b = document.createElement('button');
+  b.dataset.id = f.id;
+  if (f.on === 'screen') b.classList.add('screen');
+  b.innerHTML = `<span>${esc(f.label)}</span><kbd>${f.key}</kbd>`;
+  b.title = f.desc + (f.on === 'screen' ? ' (whole screen)' : ' (foregrounds)');
+  b.onclick = () => setFx(f.id, !want.fx[f.id]);
+  $('fx').appendChild(b);
+});
+$('fx-off').onclick = allFxOff;
+$('fx-amount').oninput = (e) => { want.fxAmount = parseFloat(e.target.value); channel.postMessage({ type: 'fxAmount', value: want.fxAmount }); };
+renderFx();
+
+function goTo(song, scene, force) {
+  want.song = song; want.scene = scene;
+  channel.postMessage({ type: 'goto', song, scene, force: !!force });
+}
+
+function go() {
+  const now = performance.now();
+  if (now - lastGo < 500) return;        // ignore accidental double presses
+  if (!connected() || out.loading) return;
+  const next = STEPS[position() + 1];
+  if (!next) return;
+  lastGo = now;
+  goTo(next.song, next.scene);
+}
+
+function setBlackout(on) {
+  want.blackout = on;
+  channel.postMessage({ type: 'blackout', on });
+  render();
+}
+
+function describeNext(step) {
+  if (step.song < 0) return { what: `Show the pre-show (${PRE.title})`, when: 'Before the show', at: null };
+  const song = SONGS[step.song];
+  const sc = song.scenes[step.scene - 1];
+  const what = step.scene === 1
+    ? `Start song ${step.song + 1}: ${song.title} — ${sc.name}`
+    : `Scene ${step.scene}: ${sc.name}`;
+  return { what, when: sc.when, at: parseAt(sc.at) };
+}
+
+function render() {
+  const ok = connected();
+  const st = $('status');
+  if (!ok) { st.className = 'pill bad'; st.textContent = 'Output not connected'; }
+  else if (!out.fullscreen) { st.className = 'pill warn'; st.textContent = 'Output connected · not fullscreen · press F for fullscreen'; }
+  else { st.className = 'pill ok'; st.textContent = 'Output live'; }
+  $('error').textContent = ok && out.error ? out.error : '';
+
+  const pos = position();
+  const next = STEPS[pos + 1];
+  const inSong = ok && out.song >= 0;
+  const songIdx = inSong ? out.song : (next && next.song >= 0 ? next.song : 0);
+  const song = SONGS[songIdx];
+
+  $('song-label').textContent = inSong ? `Song ${songIdx + 1} / ${SONGS.length}` : `Pre-show · next: song ${songIdx + 1} / ${SONGS.length}`;
+  $('song-title').textContent = song.title + (song.en ? ` · ${song.en}` : '');
+  $('scene-line').textContent = inSong
+    ? `Scene ${out.scene}: ${song.scenes[out.scene - 1].name} · ${fmt(out.sceneT)} in scene`
+    : (ok && out.song === -1 ? `On screen: ${PRE.title}. ${PRE.note || ''}` : 'Waiting for the output window');
+  $('song-timer').textContent = inSong ? fmt(out.songT) : '0:00';
+  $('tempo').textContent = inSong && out.tempo ? `${Math.round(out.tempo)} bpm` : '';
+
+  // the current (or upcoming) song's scenes
+  $('steps').innerHTML = song.scenes.map((sc, k) => {
+    const n = k + 1;
+    const done = inSong && n < out.scene, live = inSong && n === out.scene;
+    const isNext = next && next.song === songIdx && next.scene === n;
+    const mark = live ? '●' : done ? '✓' : isNext ? '▶' : '·';
+    return `<li class="${done ? 'done' : ''}${live ? ' live' : ''}${isNext ? ' next' : ''}"><span>${mark}</span><span>` +
+      `<span class="head">${n}. ${esc(sc.name)}<span class="at">${[sc.at ? '@ ' + esc(sc.at) : '', sc.bpm ? sc.bpm + ' bpm' : ''].filter(Boolean).join(' · ')}</span></span>` +
+      `<span class="when">When: ${esc(sc.when || '')}</span>` +
+      (sc.does || []).map(d => `<span class="does">— ${esc(d)}</span>`).join('') +
+      (sc.tip ? `<span class="tip">Tip: ${esc(sc.tip)}</span>` : '') +
+      `</span></li>`;
+  }).join('');
+
+  // GO button
+  let what, when = '';
+  if (!ok) what = 'Open the output window first';
+  else if (out.loading) what = 'Loading…';
+  else if (!next) { what = 'End of show'; when = 'No more cues.'; }
+  else {
+    const d = describeNext(next);
+    what = d.what;
+    const parts = [`When: ${d.when}`];
+    if (d.at != null) {
+      let timing = `around ${fmt(d.at)}`;
+      if (inSong && next.song === out.song) {
+        const left = d.at - out.songT;
+        timing += left >= 0 ? ` (in ${fmt(left)})` : ` (${fmt(-left)} past)`;
+      }
+      parts.push(timing);
+    }
+    when = parts.join(' · ');
+  }
+  $('go').disabled = !ok || out.loading || !next;
+  $('go-what').textContent = what;
+  $('go-when').textContent = when;
+
+  $('blackout').classList.toggle('on', want.blackout);
+  $('blackout').firstChild.textContent = want.blackout ? 'Blackout ON ' : 'Blackout ';
+
+  // setlist status
+  document.querySelectorAll('.song').forEach((el, si) => {
+    const status = !inSong ? (si === songIdx ? 'next' : '') : si < songIdx ? 'done' : si === songIdx ? 'now' : '';
+    el.className = `song ${status}`;
+    el.querySelector('.st').textContent = status === 'now' ? 'NOW' : status === 'done' ? 'done' : status === 'next' ? 'next' : '';
+  });
+  document.querySelectorAll('.song .scenes button').forEach(b =>
+    b.classList.toggle('on', ok && +b.dataset.song === out.song && +b.dataset.scene === out.scene));
+}
+
+// Open the output window — on the other screen if the browser lets us know where it is
+async function openOutput() {
+  let features = 'popup,width=1280,height=720';
+  try {
+    if ('getScreenDetails' in window) {
+      const details = await window.getScreenDetails();
+      const other = details.screens.find(s => s !== details.currentScreen);
+      if (other) features = `popup,left=${other.availLeft},top=${other.availTop},width=${other.availWidth},height=${other.availHeight}`;
+    }
+  } catch (e) { /* permission denied: open normally, operator drags it */ }
+  const w = window.open('output.html', 'oasis-output', features);
+  if (!w) $('error').textContent = 'The browser blocked the output window. Allow pop-ups for this page and try again.';
+}
+
+// setlist: pre-show + songs, each scene is a jump button
+function addSong(label, title, scenes, si) {
+  const el = document.createElement('div');
+  el.className = 'song';
+  el.innerHTML = `<div class="song-head"><span>${label}</span><b>${esc(title)}</b><span class="st"></span></div><div class="scenes"></div>`;
+  scenes.forEach(([name, scene]) => {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.dataset.song = si; b.dataset.scene = scene;
+    b.onclick = () => goTo(si, scene, true);
+    el.querySelector('.scenes').appendChild(b);
+  });
+  $('setlist').appendChild(el);
+  return el;
+}
+addSong('', PRE.title, [['Show', 0]], -1).classList.add('pre');
+SONGS.forEach((song, si) => addSong(`${si + 1}.`, song.title, song.scenes.map((sc, k) => [`${k + 1}. ${sc.name}`, k + 1]), si));
+// the pre-show box isn't a song: keep it out of the song status logic
+const preBox = document.querySelector('.song.pre');
+preBox.classList.remove('song'); preBox.classList.add('pre-box', 'card');
+preBox.style.cssText = 'padding:10px 12px;border-radius:10px;background:none';
+preBox.querySelector('.scenes').style.cssText = 'display:flex;gap:6px;margin-top:8px';
+
+$('go').onclick = go;
+$('open').onclick = openOutput;
+$('blackout').onclick = () => setBlackout(!want.blackout);
+$('restart').onclick = () => { if (connected()) goTo(out.song, out.scene, true); };
+$('master').oninput = (e) => { want.master = parseFloat(e.target.value); channel.postMessage({ type: 'master', value: want.master }); };
+
+// clicked buttons shouldn't keep focus, or Space would press them again
+document.addEventListener('click', e => { const b = e.target.closest('button'); if (b) b.blur(); });
+
+window.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); go(); }
+  else if (e.key === "b" || e.key === "B") setBlackout(!want.blackout);
+  else if (e.key === "x" || e.key === "X") allFxOff();
+  else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+    const f = LIVE_FX.find(f => f.key === e.key);
+    if (f) setFx(f.id, !want.fx[f.id]);
+  }
+});
+
+setInterval(render, 250);
+channel.postMessage({ type: 'ping' });
+render();
+</script>
+</body>
+</html>

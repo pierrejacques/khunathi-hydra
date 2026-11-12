@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oasis Effects Lab</title>
+<style>
+  :root {
+    --bg: #000;
+    --panel: rgba(18, 18, 22, 0.92);
+    --line: #33333c;
+    --text: #e8e8ee;
+    --muted: #9a9aa8;
+    --accent: #6ee7c8;
+    --err: #ff7a7a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; overflow: hidden; }
+  #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: contain; background: #000; }
+  #panel { position: fixed; top: 0; right: 0; width: 360px; max-width: 100vw; height: 100vh; overflow-y: auto;
+    background: var(--panel); border-left: 1px solid var(--line); padding: 14px 16px 24px; }
+  #panel.hidden { display: none; }
+  h1 { font-size: 15px; margin: 0 0 2px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 18px 0 8px; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .slot { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px dashed var(--line);
+    border-radius: 6px; margin-bottom: 6px; }
+  .slot.drag { border-color: var(--accent); background: rgba(110, 231, 200, .08); }
+  .slot b { width: 34px; flex: none; }
+  .slot span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  button, select { background: #24242c; color: var(--text); border: 1px solid var(--line); border-radius: 5px;
+    padding: 5px 8px; font: inherit; cursor: pointer; }
+  button:hover { border-color: #55555f; }
+  #presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #presets button { text-align: left; }
+  #presets button.on { border-color: var(--accent); color: var(--accent); }
+  .row { display: grid; grid-template-columns: 70px 1fr 38px; align-items: center; gap: 8px; margin: 6px 0; }
+  .row output { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  textarea { width: 100%; height: 230px; background: #0d0d10; color: #d6f5ec; border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px; font: 12px/1.45 ui-monospace, Menlo, monospace; resize: vertical; }
+  #err { color: var(--err); font: 12px ui-monospace, Menlo, monospace; white-space: pre-wrap; min-height: 1em; }
+  .bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  kbd { background: #2a2a33; border-radius: 3px; padding: 0 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<aside id="panel">
+  <h1>Oasis Effects Lab</h1>
+  <div class="hint"><kbd>1</kbd>–<kbd>0</kbd> presets · <kbd>H</kbd> hide panel · <kbd>F</kbd> fullscreen · <kbd>⌘/Ctrl+Enter</kbd> run code</div>
+
+  <h2>Sources (drop PNG / MP4 / WebM)</h2>
+  <div class="slot" data-slot="0"><b>BG</b><span>placeholder</span><button>Load…</button></div>
+  <div class="slot" data-slot="1"><b>FG1</b><span>placeholder</span><button>Load…</button></div>
+  <div class="slot" data-slot="2"><b>FG2</b><span>placeholder</span><button>Load…</button><button data-clear>✕</button></div>
+  <div class="bar">
+    <span class="hint">Output</span>
+    <select id="res">
+      <option value="1280x720">1280×720</option>
+      <option value="1920x1080" selected>1920×1080</option>
+      <option value="3840x2160">3840×2160</option>
+      <option value="1080x1920">1080×1920 (portrait)</option>
+    </select>
+  </div>
+  <input type="file" id="file" accept="image/*,video/*" hidden>
+
+  <div class="bar" style="margin-top:6px"><button id="restart">Restart <kbd>R</kbd></button></div>
+  <p class="hint">Songs and scenes run in the show (control.html). This lab is for trying effects.</p>
+
+  <h2>Effect presets</h2>
+  <div id="presets"></div>
+
+  <h2>Live controls</h2>
+  <div class="row"><label for="amount">Amount</label><input id="amount" type="range" min="0" max="2" step="0.01" value="1"><output></output></div>
+  <div class="row"><label for="speed">Speed</label><input id="speed" type="range" min="0" max="3" step="0.01" value="1"><output></output></div>
+  <div class="row"><label for="hue">Hue drift</label><input id="hue" type="range" min="0" max="2" step="0.01" value="0.3"><output></output></div>
+
+  <h2>Code (edit &amp; run)</h2>
+  <textarea id="code" spellcheck="false"></textarea>
+  <div class="bar" style="margin-top:6px"><button id="run">Run</button><button id="reset">Reset preset</button></div>
+  <div id="err"></div>
+  <p class="hint">Sources: <code>s0</code> = BG, <code>s1</code> = FG1, <code>s2</code> = FG2. Live values: <code>P.amount</code>, <code>P.speed</code>, <code>P.hue</code> — use them inside <code>() =&gt;</code> functions so sliders act instantly. For foregrounds use <code>fg(s1)</code>, <code>spin(chain, angle)</code> and <code>kaleidoscope(chain, sides)</code> instead of <code>src</code>, <code>.rotate()</code> and <code>.kaleid()</code> — they avoid edge repeats and stretching.</p>
+</aside>
+
+<script src="vendor/hydra-synth.js"></script>
+<script src="js/core.js"></script>
+<script>
+// P (live values) and the custom effects come from js/core.js
+
+// ---------- presets (code strings so they can be edited in the panel) ----------
+const PRESETS = [
+  ['Plain layers', `
+src(s0)
+  .layer(fg(s1))
+  .layer(fg(s2))
+  .out()`],
+
+  ['Spin + pulse', `
+src(s0)
+  .hue(() => time * 0.05 * P.hue)
+  .layer(
+    spin(fg(s1), () => time * 0.3 * P.speed)
+      .scale(() => 1 + Math.sin(time * 2 * P.speed) * 0.08 * P.amount)
+  )
+  .layer(spin(fg(s2), () => -time * 0.2 * P.speed))
+  .out()`],
+
+  ['Liquid wobble', `
+src(s0)
+  .hue(() => time * 0.05 * P.hue)
+  .layer(
+    fg(s1)
+      .scale(0.95)
+      .modulate(noise(3, () => 0.2 * P.speed), () => 0.05 * P.amount)
+  )
+  .layer(fg(s2).modulate(noise(2, () => 0.15 * P.speed), () => 0.03 * P.amount))
+  .out()`],
+
+  ['Twist swirl', `
+src(s0)
+  .hue(() => time * 0.05 * P.hue)
+  .layer(
+    fg(s1)
+      .scale(0.95)
+      .modulateRotate(osc(2, () => 0.1 * P.speed), () => 0.6 * P.amount)
+  )
+  .layer(fg(s2))
+  .out()`],
+
+  ['Echo copies', `
+// fading duplicates trailing behind the foreground
+const copy = (i) => spin(fg(s1), () => (time - i * 0.25) * 0.4 * P.speed)
+  .scale(() => 1 + i * 0.12 * P.amount)
+  .color(1, 1, 1, 1 - i * 0.24)
+
+src(s0)
+  .hue(() => time * 0.05 * P.hue)
+  .layer(copy(3)).layer(copy(2)).layer(copy(1)).layer(copy(0))
+  .layer(fg(s2))
+  .out()`],
+
+  ['Feedback trails', `
+// previous frame, slightly bigger, fading out -> smeared trails
+src(o0)
+  .scale(() => 1 + 0.025 * P.amount)
+  .color(1, 1, 1, () => Math.min(0.96, 0.8 + 0.08 * P.amount))
+  .layer(spin(fg(s1), () => time * 0.4 * P.speed))
+  .out(o0)
+
+src(s0)
+  .hue(() => time * 0.05 * P.hue)
+  .layer(src(o0))
+  .layer(fg(s2))
+  .out(o1)
+
+render(o1)`],
+
+  ['Kaleidoscope', `
+src(s0)
+  .hue(() => time * 0.05 * P.hue)
+  .layer(
+    kaleidoscope(spin(fg(s1), () => time * 0.2 * P.speed), 6)
+      .scale(() => 0.8 + Math.sin(time * P.speed) * 0.1 * P.amount)
+  )
+  .layer(fg(s2))
+  .out()`],
+
+  ['Color cycle', `
+src(s0)
+  .hue(() => time * 0.08 * P.hue)
+  .saturate(() => 1 + 0.5 * P.amount)
+  .layer(
+    fg(s1)
+      .colorama(() => 0.02 * P.amount * Math.sin(time * P.speed))
+      .hue(() => time * 0.1 * P.hue)
+  )
+  .layer(fg(s2).hue(() => -time * 0.1 * P.hue))
+  .out()`],
+
+  ['RGB split', `
+// chromatic aberration on the whole composite
+const comp = () => src(s0)
+  .hue(() => time * 0.05 * P.hue)
+  .layer(spin(fg(s1), () => time * 0.2 * P.speed))
+  .layer(fg(s2))
+
+comp()
+  .color(1, 0, 0)
+  .scrollX(() => 0.012 * P.amount * Math.sin(time * 1.5 * P.speed))
+  .add(comp().color(0, 1, 1))
+  .out()`],
+
+  ['Glitch', `
+// horizontal bands that jump sideways
+src(s0)
+  .hue(() => time * 0.05 * P.hue)
+  .layer(
+    fg(s1)
+      .modulateScrollX(
+        noise(3, () => 0.8 * P.speed).pixelate(1, 24).thresh(0.25),
+        () => 0.08 * P.amount)
+  )
+  .layer(fg(s2))
+  .out()`],
+];
+
+// ---------- Hydra ----------
+const canvas = document.getElementById('stage');
+let W = 1920, H = 1080;
+ASPECT = W / H;
+canvas.width = W; canvas.height = H;
+const hydra = new Hydra({ canvas, width: W, height: H, detectAudio: false, makeGlobal: true });
+
+registerEffects(hydra);
+
+const srcs = [s0, s1, s2];
+// what each slot currently holds: {kind:'image', img} | {kind:'video'} | {kind:'placeholder'} | {kind:'empty'}
+const slotState = [{ kind: 'placeholder' }, { kind: 'placeholder' }, { kind: 'placeholder' }];
+
+// Placeholder art so effects can be judged before real assets are loaded.
+function placeholder(i) {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const m = Math.min(W, H);
+  if (i === 0) {
+    const grd = g.createLinearGradient(0, 0, W, H);
+    grd.addColorStop(0, '#0b1d3a'); grd.addColorStop(0.5, '#3a1145'); grd.addColorStop(1, '#0d3b36');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = 2;
+    for (let x = 0; x <= W; x += m / 12) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    for (let y = 0; y <= H; y += m / 12) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  } else if (i === 1) {
+    g.translate(W / 2, H / 2);
+    const R = m * 0.3, r = m * 0.12;
+    g.beginPath();
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2, rad = k % 2 ? r : R;
+      g.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+    }
+    g.closePath();
+    const grd = g.createRadialGradient(0, 0, 0, 0, 0, R);
+    grd.addColorStop(0, '#fff6b0'); grd.addColorStop(0.5, '#ff8a3d'); grd.addColorStop(1, '#ff2e7e');
+    g.fillStyle = grd; g.fill();
+    g.lineWidth = m * 0.006; g.strokeStyle = '#ffffff'; g.stroke();
+  } else {
+    g.translate(W * 0.72, H * 0.3);
+    g.lineWidth = m * 0.025;
+    g.strokeStyle = '#6ee7c8';
+    g.beginPath(); g.arc(0, 0, m * 0.1, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#b28cff';
+    g.beginPath(); g.arc(0, 0, m * 0.04, 0, Math.PI * 2); g.fill();
+  }
+  return c;
+}
+
+function emptyCanvas() {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 4; return c;
+}
+
+function applySlot(i) {
+  const st = slotState[i];
+  if (st.kind === 'image') srcs[i].init({ src: fitToCanvas(st.img, st.place || (i === 0 ? 'cover' : 'contain'), W, H), dynamic: false });
+  else if (st.kind === 'placeholder') srcs[i].init({ src: placeholder(i), dynamic: false });
+  else if (st.kind === 'empty') srcs[i].init({ src: emptyCanvas(), dynamic: false });
+  // videos manage themselves (Hydra's initVideo); they stretch to the frame, so export them at the output aspect ratio.
+}
+
+function loadFile(i, file) {
+  const url = URL.createObjectURL(file);
+  const label = document.querySelector(`.slot[data-slot="${i}"] span`);
+  label.textContent = file.name;
+  if (file.type.startsWith('video/')) {
+    slotState[i] = { kind: 'video' };
+    srcs[i].initVideo(url);
+  } else {
+    const img = new Image();
+    img.onload = () => { slotState[i] = { kind: 'image', img }; applySlot(i); };
+    img.onerror = () => { label.textContent = 'could not load ' + file.name; };
+    img.src = url;
+  }
+}
+
+// ---------- running code ----------
+const codeEl = document.getElementById('code');
+const errEl = document.getElementById('err');
+let current = { type: 'preset', index: 0 };
+
+function resetOutputs() {
+  // like hush(), but keeps the loaded sources
+  [o0, o1, o2, o3].forEach(o => solid(0, 0, 0, 0).out(o));
+  render(o0);
+}
+
+function run(code) {
+  errEl.textContent = '';
+  try {
+    resetOutputs();
+    new Function(code)();
+  } catch (e) {
+    errEl.textContent = e.message;
+    console.error(e);
+  }
+}
+
+function markActive() {
+  document.querySelectorAll('#presets button').forEach((b, k) =>
+    b.classList.toggle('on', current.type === 'preset' && k === current.index));
+}
+
+function selectPreset(i) {
+  current = { type: 'preset', index: i };
+  codeEl.value = PRESETS[i][1].trim();
+  markActive();
+  run(codeEl.value);
+}
+
+function restart() { run(codeEl.value); }
+
+// ---------- UI wiring ----------
+const presetsEl = document.getElementById('presets');
+PRESETS.forEach(([name], i) => {
+  const b = document.createElement('button');
+  b.textContent = `${(i + 1) % 10}  ${name}`;
+  b.onclick = () => selectPreset(i);
+  presetsEl.appendChild(b);
+});
+
+document.getElementById('restart').onclick = restart;
+
+['amount', 'speed', 'hue'].forEach(k => {
+  const el = document.getElementById(k), out = el.nextElementSibling;
+  const sync = () => { P[k] = parseFloat(el.value); out.textContent = P[k].toFixed(2); };
+  el.addEventListener('input', sync); sync();
+});
+
+const fileInput = document.getElementById('file');
+let pendingSlot = 0;
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) loadFile(pendingSlot, fileInput.files[0]);
+  fileInput.value = '';
+});
+
+document.querySelectorAll('.slot').forEach(slot => {
+  const i = +slot.dataset.slot;
+  slot.querySelector('button:not([data-clear])').onclick = () => { pendingSlot = i; fileInput.click(); };
+  const clr = slot.querySelector('[data-clear]');
+  if (clr) clr.onclick = () => { slotState[i] = { kind: 'empty' }; slot.querySelector('span').textContent = 'empty'; applySlot(i); };
+  slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('drag'); });
+  slot.addEventListener('dragleave', () => slot.classList.remove('drag'));
+  slot.addEventListener('drop', e => {
+    e.preventDefault(); slot.classList.remove('drag');
+    if (e.dataTransfer.files[0]) loadFile(i, e.dataTransfer.files[0]);
+  });
+});
+// stop the browser from opening files dropped outside a slot
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+
+document.getElementById('res').addEventListener('change', e => {
+  [W, H] = e.target.value.split('x').map(Number);
+  ASPECT = W / H;
+  canvas.width = W; canvas.height = H;
+  hydra.setResolution(W, H);
+  [0, 1, 2].forEach(applySlot);
+  run(codeEl.value);
+});
+
+document.getElementById('run').onclick = () => run(codeEl.value);
+document.getElementById('reset').onclick = () => {
+  selectPreset(current.index);
+};
+
+window.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); run(codeEl.value); return; }
+  const tag = document.activeElement && document.activeElement.tagName;
+  const typing = tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'INPUT' && document.activeElement.type !== 'range');
+  if (typing) return;
+  if (e.key === 'r' || e.key === 'R') restart();
+  else if (e.key === 'h' || e.key === 'H') document.getElementById('panel').classList.toggle('hidden');
+  else if (e.key === 'f' || e.key === 'F') {
+    if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen();
+  } else if (/^[0-9]$/.test(e.key)) {
+    const i = (parseInt(e.key, 10) + 9) % 10;
+    if (i < PRESETS.length) selectPreset(i);
+  }
+});
+
+// clicked buttons shouldn't keep focus, or Space would press them again instead of firing a cue
+document.addEventListener('click', e => { const b = e.target.closest('button'); if (b) b.blur(); });
+
+// ---------- start ----------
+[0, 1, 2].forEach(applySlot);
+// open directly: index.html#5 = preset 5
+const presetNum = parseInt(location.hash.slice(1), 10);
+selectPreset(presetNum >= 1 && presetNum <= PRESETS.length ? presetNum - 1 : 0);
+</script>
+</body>
+</html>

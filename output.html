@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oasis Output</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body.hide-cursor { cursor: none; }
+  #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: contain;
+    opacity: 0; transition: opacity 0.6s ease; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<script src="vendor/hydra-synth.js"></script>
+<script src="js/core.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/scenes.js"></script>
+<script src="js/livefx.js"></script>
+<script src="js/engine.js"></script>
+<script>
+// Render resolution (scaled to fit the screen). Override with output.html?res=3840x2160
+const params = new URLSearchParams(location.search);
+const [OUT_W, OUT_H] = (params.get('res') || '1920x1080').split('x').map(Number);
+ASPECT = OUT_W / OUT_H;
+
+const canvas = document.getElementById('stage');
+canvas.width = OUT_W; canvas.height = OUT_H;
+const hydra = new Hydra({ canvas, width: OUT_W, height: OUT_H, detectAudio: false, makeGlobal: true, numSources: 12, numOutputs: 12 });
+registerEffects(hydra);
+requestAnimationFrame(engineTick);
+
+const channel = new BroadcastChannel('oasis-show');
+
+const state = {
+  song: -2,         // -2 nothing yet, -1 pre-show, 0.. song index
+  scene: 0,         // scenes started in this song (0 = none / pre-show)
+  loading: false,
+  error: '',
+  blackout: false,
+  master: 1,
+  fading: false,    // fading through black between programs
+};
+
+const stepIndex = (song, scene) => STEPS.findIndex(s => s.song === song && s.scene === scene);
+const defOf = (song) => (song < 0 ? PRE : SONGS[song]);
+
+function applyBrightness() {
+  canvas.style.opacity = (state.blackout || state.fading || (state.loading && state.song < -1)) ? 0 : state.master;
+}
+
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+let loadToken = 0;
+
+// Go to a step. The next scene of the running song just starts (seamless); anything else
+// (re)loads the song and fast-forwards to that scene.
+async function goTo(song, scene, force) {
+  const natural = stepIndex(song, scene) === stepIndex(state.song, state.scene) + 1;
+  if (!force && natural && song === state.song && song >= 0) {
+    state.error = '';
+    try { fireScene(scene); }
+    catch (e) { console.error(e); state.error = `${SONGS[song].title} scene ${scene}: ${e.message}`; }
+    state.scene = scene; sendState(); return;
+  }
+  const token = ++loadToken;
+  const def = defOf(song);
+  state.error = '';
+  state.loading = true; applyBrightness(); sendState();
+  try {
+    const showing = state.song > -2 && !state.blackout;
+    const throughBlack = showing && (force || !natural || def.transition !== 'cut');
+    const [prog] = await Promise.all([prepareProgram(def), throughBlack ? (state.fading = true, applyBrightness(), wait(600)) : null]);
+    if (token !== loadToken) return;      // a newer request arrived meanwhile
+    activateProgram(prog, scene);
+    state.song = song; state.scene = scene;
+    // keep this song, the pre-show and the next song in memory; fetch the next one now
+    const next = SONGS[song + 1];
+    pruneAssets([PRE, def, ...(next ? [next] : [])]);
+    if (next) preloadProgram(next);
+  } catch (e) {
+    console.error(e);
+    state.error = `${def.title}: ${e.message}`;
+  }
+  if (token !== loadToken) return;
+  state.loading = false;
+  state.fading = false;
+  applyBrightness();
+  sendState();
+}
+
+function sendState() {
+  const started = state.song >= 0 && state.scene > 0;
+  channel.postMessage({
+    type: 'state',
+    song: state.song,
+    scene: state.scene,
+    songT: started ? C(1) : 0,
+    sceneT: started ? C(state.scene) : 0,
+    tempo: tempo(),
+    beats: clock.beats,
+    loading: state.loading,
+    error: state.error,
+    blackout: state.blackout,
+    master: state.master,
+    fullscreen: !!document.fullscreenElement,
+    fx: FX.on,
+  });
+}
+setInterval(sendState, 250);
+
+channel.onmessage = ({ data }) => {
+  switch (data.type) {
+    case 'goto': goTo(data.song, data.scene, !!data.force); break;
+    case 'blackout': state.blackout = !!data.on; applyBrightness(); sendState(); break;
+    case 'master': state.master = Math.max(0, Math.min(1, data.value)); applyBrightness(); break;
+    case 'fx': if (data.id in FX.on) FX.on[data.id] = !!data.on; sendState(); break;
+    case 'fxAll': Object.keys(FX.on).forEach(id => { FX.on[id] = !!(data.on && data.on[id]); }); sendState(); break;
+    case 'fxAmount': FX.amount = Math.max(0, Math.min(2, data.value)); break;
+    case 'ping': sendState(); break;
+  }
+};
+
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+window.addEventListener('keydown', e => {
+  if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+});
+document.addEventListener('fullscreenchange', () => {
+  document.body.classList.toggle('hide-cursor', !!document.fullscreenElement);
+  sendState();
+});
+document.addEventListener('dblclick', toggleFullscreen);
+
+// warm up: the pre-show and the first song
+preloadProgram(PRE);
+preloadProgram(SONGS[0]);
+
+// tell the control window we're here; it replies with what to show
+channel.postMessage({ type: 'hello' });
+// (nothing is drawn over the picture; the control window shows status and errors)
+</script>
+</body>
+</html>

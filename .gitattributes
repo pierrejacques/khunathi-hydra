@@ -1,0 +1,6 @@
+# Windows launch scripts need Windows line endings
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+# Mac launcher must keep Unix line endings
+*.command text eol=lf
+*.pl text eol=lf

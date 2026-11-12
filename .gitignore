@@ -1,0 +1,7 @@
+# Media lives in the GitHub Release (oasis-assets.zip), not in git — see README
+assets/
+raw-images-for–videos/
+*.zip
+
+# macOS
+.DS_Store
