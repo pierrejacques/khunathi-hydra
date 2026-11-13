@@ -11,6 +11,8 @@ const ASSETS = {
   'asalini-fg-ox': 'asalini-fg-ox.png',
   'asalini-fg-swim': 'asalini-fg-swim.mp4',
   'asalini-fg-wheel': 'asalini-fg-wheel.png',
+  'kargyraa-bg-blue': 'kargyraa-bg-blue.mp4',
+  'kargyraa-bg-green': 'kargyraa-bg-green.mp4',
   'pagoda-bg-mist': 'pagoda-bg-mist.mp4',
   'pagoda-bg-mountains': 'pagoda-bg-mountains.png',
   'samarkand-bg-blue-blooming': 'samarkand-bg-blue-blooming.mp4',

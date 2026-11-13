@@ -148,7 +148,7 @@ const group = grainy(L.group, GRAIN, () => Math.floor(time * 24))
 const cloud = src(L.cloud).lakeWave(CLOUD_WAVE, 1.5, () => (C(3) || 0) * 1.2)
 // birds (Darken): start just above the screen, right edge on the screen's right edge, then fly at 45°
 // down-left through the screen and out again in 2/3 of the beat (Hydra's y runs down)
-const birdsH = BIRDS_W * ASPECT          // the birds image is square: height in screen-height units
+const birdsH = BIRDS_W * ASPECT / L.birds.aspect   // its height in screen-height units (from its own proportions)
 const BIRDS_SPEED = 1.5                  // 1.5x: crosses the screen in 2/3 of the beat
 const birdsT = () => (phase() - 7) * BIRDS_SPEED   // 0..1 = entering to gone
 const travel = 1 + birdsH                 // down until its top passes the bottom edge (screen heights)
@@ -337,6 +337,7 @@ picture.out()`,
       dark:    { asset: 'asalini-bg-dark', fit: 'cover' },
       monks:   { asset: 'asalini-fg-monks', width: 0.4167 },
       wave:    { asset: 'asalini-bg-wave', fit: 'cover', startAt: 7, rate: 1.5, from: 1 / 24 },   // 1.5x, skip frame 0 (24 fps) for a cleaner loop
+      swim:    { asset: 'asalini-fg-swim', fit: 'cover', startAt: 7, from: 2 / 24 },              // skip frames 0–1 (white background)
     },
     scenes: [
       {
@@ -372,12 +373,24 @@ picture.out()`,
       {
         name: '推起', at: '4:58', bpm: 157,
         when: '蓄力后再次进入高潮',
-        does: ['Everything resets: wave video at 1.5x speed, hue swaying in a small range'],
+        does: ['Everything resets: wave video at 1.5x speed, hue swaying in a small range',
+               'Swimmers on top (Lighten, opacity 0.7), floating as if on water'],
         code: `
 const WAVE_HUE = 0.06       // * hue sways ±0.06 of the colour wheel (≈22°)…
 const WAVE_HUE_BEATS = 16   // * …once every 16 beats
+const SWIM_OPACITY = 0.7
+const FLOAT_AMP = 0.012     // * how much the swimmers wobble sideways…
+const FLOAT_LIFT = 0.008    // * …and bob up and down
+
+// swimmers: light figures on black -> Lighten (black = no change); floating on water =
+// a slow sideways ripple plus a gentle up/down bob, on the clock (not the beat)
+const swim = src(L.swim)
+  .lakeWave(FLOAT_AMP, 2, () => time * 1.1)
+  .modulateScrollY(osc(2, 0.08, 0), FLOAT_LIFT)
+
 src(L.wave)
   .hue(() => Math.sin((CB(7) || 0) * TAU / WAVE_HUE_BEATS) * WAVE_HUE)
+  .over(swim, SWIM_OPACITY, 1)
   .out()`,
       },
     ],
@@ -549,7 +562,41 @@ spin(src(L.intro).scale(zoom, flip, 1), turn)
 const glitchAmount = () => chaos() * (on(12, 0.4) ? 0.5 + 0.5 * rnd(step(), 13) : 0.15)
 glitchy(o1, glitchAmount, step).out()`,
   },
-  placeholderSong('喀喇昆仑', 'Kargyraa'),
+  {
+    title: '喀喇昆仑',
+    en: 'Kargyraa',
+    transition: 'black',
+    sources: {
+      blue:  { asset: 'kargyraa-bg-blue', fit: 'cover' },
+      green: { asset: 'kargyraa-bg-green', fit: 'cover' },
+    },
+    scenes: [
+      {
+        name: '开场', at: '0:00', bpm: 64,
+        when: '曲目开始',
+        does: ['Blue and green videos take turns every 16 beats (cuts)',
+               'From beat 32 the hue starts swinging slightly, the swing growing slowly wider with time'],
+      },
+    ],
+    code: `
+// ---- tuning: values marked * are guesses, the rest come from cues.md ----
+const SWITCH_BEATS = 16     // blue 16 beats, green 16 beats, …
+const HUE_FROM = 32         // hue starts swinging at beat 32
+const HUE_START = 0.01      // * starting swing: ±0.01 of the colour wheel (≈4°, very slight)
+const HUE_GROW = 0.0015     // * added per beat — ≈ ±0.2 after 2½ minutes, ±0.35 after 4½
+const HUE_MAX = 0.5         // ±0.5 = the whole colour wheel
+const HUE_BEATS = 8         // * one swing back and forth every 8 beats
+
+const b = () => Math.max(0, CB(1) || 0)
+const isGreen = () => Math.floor(b() / SWITCH_BEATS) % 2 === 1
+const range = () => b() < HUE_FROM ? 0 : Math.min(HUE_MAX, HUE_START + (b() - HUE_FROM) * HUE_GROW)
+const hue = () => Math.sin((b() - HUE_FROM) * TAU / HUE_BEATS) * range()
+
+src(L.blue)
+  .blend(src(L.green), () => isGreen() ? 1 : 0)
+  .hue(hue)
+  .out()`,
+  },
   {
     title: '潮气吹过后山破庙时',
     en: 'Misty Mountain Pagoda',

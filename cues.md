@@ -30,8 +30,8 @@ And here I list all the assets used, they're all saved under the assets folder:
 - yebali-bg-bw.png
 - yebali-fg-characters.png
 - yebali-bg-green.mp4
-- kargyraa-bg-blue.mp4 // NOT DONE YET
-- kargyraa-bg-green.mp4 // NOT DONE YET
+- kargyraa-bg-blue.mp4
+- kargyraa-bg-green.mp4
 - pagoda-bg-mist.mp4
 - pagoda-bg-mountains.png
 
@@ -156,6 +156,7 @@ Everything keep their aspect-ratio until I specify
 - bpm: 157
 - reset the scene
 - play the asalini-bg-wave object-cover, at 1.5x speed, starting from its 2nd frame (the 1st frame is skipped for a cleaner loop), rotate its hue in small range
+- play the asalini-fg-swim object-cover, without the first several frames where the background is white, blendmode lighten, opacity 0.7, give distortion to the layer, making a floating on water effect
 
 ## Song3: 长安西郊夜巴黎 Yebali
 
@@ -194,6 +195,15 @@ doing a montage loop consist of the following clips, those clips are instantly s
 - play object-cover yebali-bg-green, introduce effects to make the scene more vivid, sync to bpm
 
 ## Song4: 喀喇昆仑 Kargyraa
+
+### 开场：曲目开始
+
+bpm: 64
+background: switch between 2 assets, both object cover:
+
+- 16 beats: kargyraa-bg-blue
+- 16 beats: kargyraa-bg-green
+- hue rotating from a very slight range, starting from 32 beats, then very slowly gradually increase the hue rotating range, make the range larger and larger, sync to bpm
 
 ## Song5: 潮气吹过后山破庙时 Misty Mountain Pagoda
 

@@ -83,7 +83,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>OASIS · SHOW CONTROL</h1>
+    <h1>OASIS · SHOW CONTROL <span id="version" style="color: var(--muted); font-weight: 400; letter-spacing: 0"></span></h1>
     <span id="status" class="pill bad">Output not connected</span>
     <span class="spacer"></span>
     <button id="open">Open output window</button>
@@ -146,6 +146,7 @@
   </p>
 </div>
 
+<script src="js/version.js"></script>
 <script src="js/scenes.js"></script>
 <script src="js/livefx.js"></script>
 <script>
@@ -373,6 +374,7 @@ window.addEventListener('keydown', e => {
   }
 });
 
+$('version').textContent = 'v' + OASIS_VERSION;
 setInterval(render, 250);
 channel.postMessage({ type: 'ping' });
 render();

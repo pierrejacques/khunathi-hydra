@@ -209,6 +209,15 @@ function registerEffects(hydra) {
    return vec4(clamp(c.rgb + n * amount * w, 0.0, 1.0), c.a);`
   });
 
+  // a.dodge(b, opacity): "Color Dodge" blend mode — brightens a by b (a / (1 - b)), where b is visible.
+  // Black in b = no change; light parts of b blow a out towards white.
+  set({
+    name: 'dodge', type: 'combine',
+    inputs: [{ type: 'float', name: 'opacity', default: 1 }],
+    glsl: `   vec3 d = min(_c0.rgb / max(1.0 - _c1.rgb, vec3(0.001)), vec3(1.0));
+   return vec4(mix(_c0.rgb, d, clamp(_c1.a * opacity, 0.0, 1.0)), _c0.a);`
+  });
+
   // a.darken(b, opacity): "Darken" blend mode — keeps the darker of the two per channel, where b is
   // visible (so white in b = no change).
   set({
