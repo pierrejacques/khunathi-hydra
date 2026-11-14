@@ -43,6 +43,8 @@ The bpm are mostly for effects, I will specify that by stating syncing to the bp
 
 Almost all videos are looped, meaning they have there ends meet, Unless specify, keep playing them in loops.
 
+Video files should be exported as H.264 (8-bit, tagged avc1), at most 2560×1440, no audio needed — HEVC / H.265 (especially 10-bit) doesn't play on many Windows machines, and HEVC tagged hev1 doesn't play in QuickTime.
+
 Everything keep their aspect-ratio until I specify
 
 ## Pre:
@@ -106,10 +108,10 @@ Everything keep their aspect-ratio until I specify
 
 - bpm: 160
 - background change to samarkand-bg-purple-blooming, object full
-- background layer2:place the samarkand-bg-purple-rotate image on the background, with 109.375% width, the bottom middle point of the image is anchored to the bottom middle point of the screen, blend-mode overlay, rotate hue sync to the bpm, and rotate the image around the bottom middle point, sync to half speed of the bpm
+- background layer2:place the samarkand-bg-purple-rotate image on the background, with 109.375% width, the bottom middle point of the image is anchored to the bottom middle point of the screen, blend-mode overlay, rotate hue sync to the bpm, and rotate the image around the bottom middle point, sync to half speed of the bpm. the image is then scaled by 1.5, using the screen's bottom middle point as origin (the same point it rotates around)
 - the samarkand-fg-3dancers fade in, and play the following 8-beat scheme as a loop, the even loop gets mirrored left/right-wise.
   - for 6 beats, placed at the center, with width 60%, opacity 0.8, blendmode difference (the 2 duplicating beats stay lighten)
-  - for 2 beats, with 100%, place at a position that's transformed X-wise for -15%, and by the gap of 100ms, use the bottom center point of the screen, create a 0.2 opacity rotated copy, every copy created is rotated by a further degree of 6.75 clockwise. a total of 8 copies are created
+  - for 2 beats, with 100%, place at a position that's transformed X-wise for -15%, and by the gap of 100ms, use the bottom center point of the screen, create a 0.2 opacity rotated copy, every copy created is rotated by a further degree of 6.75 clockwise. a total of 8 copies are created. the original (unrotated) one also has 0.2 opacity during these 2 beats
 
 ## Song2: 阿舍里尼 Asalini
 
@@ -156,7 +158,7 @@ Everything keep their aspect-ratio until I specify
 - bpm: 157
 - reset the scene
 - play the asalini-bg-wave object-cover, at 1.5x speed, starting from its 2nd frame (the 1st frame is skipped for a cleaner loop), rotate its hue in small range
-- play the asalini-fg-swim object-cover, without the first several frames where the background is white, blendmode lighten, opacity 0.7, give distortion to the layer, making a floating on water effect
+- play the asalini-fg-swim object-cover, at 2x speed, without the first several frames where the background is white, blendmode lighten, opacity 0.7, give distortion to the layer, making a floating on water effect
 
 ## Song3: 长安西郊夜巴黎 Yebali
 
@@ -199,11 +201,13 @@ doing a montage loop consist of the following clips, those clips are instantly s
 ### 开场：曲目开始
 
 bpm: 64
-background: switch between 2 assets, both object cover:
+background: switch between 2 assets, both object cover, each switch is a long cross-fade (8 beats, starting at the switch). neither asset ever goes below 0.2 opacity, the one "off" still shows through at 0.2:
 
 - 16 beats: kargyraa-bg-blue
 - 16 beats: kargyraa-bg-green
-- hue rotating from a very slight range, starting from 32 beats, then very slowly gradually increase the hue rotating range, make the range larger and larger, sync to bpm
+- hue rotating from a noticeable range (about ±22°), starting from 32 beats, then very slowly gradually increase the hue rotating range, make the range larger and larger, sync to bpm
+- fine film grain over the whole scene, so it's less smooth, plus a coarser luminance (brightness-only) grain on top
+- a bit of trails effect on the whole scene
 
 ## Song5: 潮气吹过后山破庙时 Misty Mountain Pagoda
 
@@ -225,8 +229,9 @@ bpm: 69
 
 - inherit from the previous scene
 - glitch and rgb split the mask layer, sync to the bpm
-  - a complicated, streaked glitch: bands of random size and position shifted sideways, some smeared into long streaks, a few inverted, random blocks jumping off, rgb split in a random direction
-  - each hit picks a random direction (mostly horizontal, sometimes vertical); the pattern changes 4 times per beat, strongest on the beat
+  - a gentle glitch that randomly appears here and there: small patches glitch on their own, at random moments (not on the beat), evenly spread over the screen, a few at a time
+  - each burst is short and mild: small band shifts, sometimes a streak, a slight rgb split in a random direction
+  - plus a bit of rgb split over the whole picture
 
 ### 低落：吉他降低八度
 

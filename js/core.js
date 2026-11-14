@@ -192,21 +192,65 @@ function registerEffects(hydra) {
    return vec4(col, mid.a);`
   });
 
-  // grainy(tex, amount, seed): film grain — fine per-pixel noise, strongest in the mid-tones.
-  //   amount ≈ 0.1 subtle … 0.3 heavy; change seed every frame (e.g. Math.floor(time * 24)) so it moves.
+  // glitchSpots(tex, amount, clock, density): a gentler glitch that pops up in small patches here and
+  //   there. The screen is an irregular grid of ~40 patches; each has its own random timing (so bursts
+  //   never line up), and each step a patch glitches with chance `density`. A burst is short: small band
+  //   shifts, sometimes a streak, a slight RGB fringe in a random direction.
+  //   amount 0..1 = overall strength, clock = a counter (e.g. beats() * 2: new chances twice a beat).
+  set({
+    name: 'glitchSpots', type: 'src',
+    inputs: [
+      { type: 'sampler2D', name: 'tex', default: NaN },
+      { type: 'float', name: 'amount', default: 1 },
+      { type: 'float', name: 'clock', default: 0 },
+      { type: 'float', name: 'density', default: 0.12 },
+    ],
+    glsl: `   vec2 uv = _st;
+   vec2 grid = vec2(8.0, 5.0);
+   float row = floor(uv.y * grid.y);
+   float ux = uv.x + fract(sin(row * 17.13) * 437.585) / grid.x;
+   vec2 cell = vec2(floor(ux * grid.x), row);
+   vec2 local = vec2(fract(ux * grid.x), fract(uv.y * grid.y));
+   float h0 = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+   float t = clock + h0 * 7.0;
+   float stp = floor(t);
+   float r = fract(sin(dot(cell + stp * vec2(1.7, 9.2), vec2(39.3, 11.7))) * 43758.5453);
+   float env = step(1.0 - density, r) * clamp(amount, 0.0, 1.0) * (1.0 - fract(t));
+   float band = floor(local.y * mix(3.0, 12.0, fract(r * 7.3)));
+   float hb = fract(sin(band * 91.7 + stp * 13.1 + h0 * 31.0) * 43758.5453);
+   vec2 p = uv + vec2((hb - 0.5) * 0.06 * env * step(0.35, hb), 0.0);
+   float cx = (cell.x + 0.5) / grid.x;
+   float streak = step(0.75, fract(r * 13.7)) * step(0.5, hb) * step(0.001, env);
+   p.x = mix(p.x, cx + (p.x - cx) * 0.15, streak);
+   float ang = fract(r * 5.1) * 6.2832;
+   vec2 off = vec2(cos(ang), sin(ang)) * 0.006 * env;
+   vec4 mid = texture2D(tex, clamp(p, 0.0, 1.0));
+   vec3 col = vec3(texture2D(tex, clamp(p + off, 0.0, 1.0)).r, mid.g, texture2D(tex, clamp(p - off, 0.0, 1.0)).b);
+   return vec4(col, mid.a);`
+  });
+
+  // grainy(tex, amount, seed, coarse, coarseSize): film grain — fine per-pixel noise, strongest in the
+  //   mid-tones (amount ≈ 0.1 subtle … 0.3 heavy), plus optional coarse luminance grain: brightness-only
+  //   blotches coarseSize pixels wide (coarse ≈ 0.05 … 0.2). Change seed every frame
+  //   (e.g. Math.floor(time * 24)) so the grain moves.
   set({
     name: 'grainy', type: 'src',
     inputs: [
       { type: 'sampler2D', name: 'tex', default: NaN },
       { type: 'float', name: 'amount', default: 0.12 },
       { type: 'float', name: 'seed', default: 0 },
+      { type: 'float', name: 'coarse', default: 0 },
+      { type: 'float', name: 'coarseSize', default: 4 },
     ],
     glsl: `   vec4 c = texture2D(tex, _st);
    vec2 px = floor(_st * resolution);
    float n = fract(sin(dot(px + seed * vec2(17.31, 41.97), vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+   vec2 cp = floor(_st * resolution / max(coarseSize, 1.0));
+   float nc = fract(sin(dot(cp + seed * vec2(5.17, 13.93), vec2(39.346, 11.135))) * 43758.5453) - 0.5;
    float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
    float w = 0.4 + 2.4 * lum * (1.0 - lum);
-   return vec4(clamp(c.rgb + n * amount * w, 0.0, 1.0), c.a);`
+   vec3 col = c.rgb * (1.0 + nc * coarse * 2.0) + n * amount * w;
+   return vec4(clamp(col, 0.0, 1.0), c.a);`
   });
 
   // a.dodge(b, opacity): "Color Dodge" blend mode — brightens a by b (a / (1 - b)), where b is visible.
@@ -235,6 +279,7 @@ function registerEffects(hydra) {
 
   if (typeof window.fg !== 'function') window.fg = hydra.synth.fg;
   if (typeof window.grainy !== 'function') window.grainy = hydra.synth.grainy;
+  if (typeof window.glitchSpots !== 'function') window.glitchSpots = hydra.synth.glitchSpots;
   if (typeof window.glitchy !== 'function') window.glitchy = hydra.synth.glitchy;
   window.spin = (chain, angle) => chain.spinA(angle, () => ASPECT);
   window.kaleidoscope = (chain, sides, aim = 0) => chain.kaleidA(sides, () => ASPECT, aim);

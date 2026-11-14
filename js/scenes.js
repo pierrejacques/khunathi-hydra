@@ -72,6 +72,7 @@ const SAMARKAND_PART2 = `
 // ---- tuning: values marked * are guesses, the rest come from cues.md ----
 const RING_HUE_BEATS = 16   // * ring's hue turns once every 16 beats (6 s at 160 bpm)
 const RING_TURN_BEATS = 32  // * ring turns once every 32 beats = half the hue's speed (12 s)
+const RING_SCALE = 1.5      // ring scaled 1.5x around the screen's bottom middle
 const D3_IN = 2             // * s, three dancers fade in
 const D3_SMALL = 0.6        // 60% width for the first 6 beats…
 const D3_SMALL_OPACITY = 0.8 // …at opacity 0.8 (the 2 big beats are at full opacity)
@@ -89,7 +90,8 @@ const background = src(L.purple).blend(src(L.purpleBloom), () => C(7) === null ?
 //      that speed.  (Hydra's y runs down: (0.5, 1) is the bottom middle of the screen.) ----
 const BOTTOM_MIDDLE = [0.5, 1]
 const ring = spinAt(
-    fg(L.purpleRing).hue(() => (CB(7) || 0) / RING_HUE_BEATS),
+    fg(L.purpleRing).hue(() => (CB(7) || 0) / RING_HUE_BEATS)
+      .scale(RING_SCALE, 1, 1, ...BOTTOM_MIDDLE),      // 1.5x, grown from the screen's bottom middle
     () => TAU * (CB(7) || 0) / RING_TURN_BEATS, ...BOTTOM_MIDDLE)
 
 // ---- scene 7: three dancers (light on black -> Lighten), an 8-beat loop, every 2nd loop mirrored ----
@@ -111,9 +113,9 @@ const d3CopyOpacity = (k) => () =>
 let picture = background.overlay(ring, () => C(7) === null ? 0 : 1)
 for (let k = D3_COPIES; k >= 1; k--) picture = picture.over(d3Copy(k), d3CopyOpacity(k), 1)
 picture
-  // 6 small beats (no copies): Difference; 2 big beats (with copies): Lighten
+  // 6 small beats (no copies): Difference; 2 big beats (with copies): Lighten, the original as faint as its copies
   .difference(posed().scale(1, d3Mirror, 1), () => d3Wide() ? 0 : ramp(7, D3_IN) * D3_SMALL_OPACITY)
-  .over(posed().scale(1, d3Mirror, 1), () => d3Wide() ? ramp(7, D3_IN) : 0, 1)
+  .over(posed().scale(1, d3Mirror, 1), () => d3Wide() ? ramp(7, D3_IN) * D3_COPY_OPACITY : 0, 1)
   .out()`;
 
 // 长安西郊夜巴黎 scenes 3–4 (the montage, then the cross-fade into 念经): one program, so 念经
@@ -237,7 +239,7 @@ const SONGS = [
         when: '鼓组加强后进入规整节奏',
         does: ['Background becomes the purple blooming video',
                'Purple ring overlays it from the bottom, turning and changing colour with the beat',
-               'Three dancers fade in: 6 beats centred (60%, opacity 0.8, Difference), then 2 beats big and shifted with a fan of 8 faint copies; every 2nd round mirrored'],
+               'Three dancers fade in: 6 beats centred (60%, opacity 0.8, Difference), then 2 beats big and shifted, faint (0.2) with a fan of 8 copies just as faint; every 2nd round mirrored'],
       },
     ],
     code: `
@@ -337,7 +339,7 @@ picture.out()`,
       dark:    { asset: 'asalini-bg-dark', fit: 'cover' },
       monks:   { asset: 'asalini-fg-monks', width: 0.4167 },
       wave:    { asset: 'asalini-bg-wave', fit: 'cover', startAt: 7, rate: 1.5, from: 1 / 24 },   // 1.5x, skip frame 0 (24 fps) for a cleaner loop
-      swim:    { asset: 'asalini-fg-swim', fit: 'cover', startAt: 7, from: 2 / 24 },              // skip frames 0–1 (white background)
+      swim:    { asset: 'asalini-fg-swim', fit: 'cover', startAt: 7, rate: 2 },                   // 2x speed (re-export has no white frames)
     },
     scenes: [
       {
@@ -374,7 +376,7 @@ picture.out()`,
         name: '推起', at: '4:58', bpm: 157,
         when: '蓄力后再次进入高潮',
         does: ['Everything resets: wave video at 1.5x speed, hue swaying in a small range',
-               'Swimmers on top (Lighten, opacity 0.7), floating as if on water'],
+               'Swimmers on top at 2x speed (Lighten, opacity 0.7), floating as if on water'],
         code: `
 const WAVE_HUE = 0.06       // * hue sways ±0.06 of the colour wheel (≈22°)…
 const WAVE_HUE_BEATS = 16   // * …once every 16 beats
@@ -574,28 +576,47 @@ glitchy(o1, glitchAmount, step).out()`,
       {
         name: '开场', at: '0:00', bpm: 64,
         when: '曲目开始',
-        does: ['Blue and green videos take turns every 16 beats (cuts)',
-               'From beat 32 the hue starts swinging slightly, the swing growing slowly wider with time'],
+        does: ['Blue and green videos take turns every 16 beats, with long 8-beat cross-fades (neither below 0.2 opacity)',
+               'From beat 32 the hue starts swinging (±22°), the swing growing slowly wider with time',
+               'Fine film grain + coarser brightness grain over everything, light trails'],
       },
     ],
     code: `
 // ---- tuning: values marked * are guesses, the rest come from cues.md ----
 const SWITCH_BEATS = 16     // blue 16 beats, green 16 beats, …
+const XFADE_BEATS = 8       // * each switch is a cross-fade this long, starting on the switch beat
+const MIN_OPACITY = 0.2     // neither video ever goes below 0.2: the "hidden" one always shows through
+const GRAIN = 0.1           // * fine film grain strength (0.05 subtle … 0.2 heavy)
+const COARSE = 0.08         // * coarse luminance grain: brightness-only blotches…
+const COARSE_SIZE = 4       // * …about 4 px wide (on a 1920-wide output)
+const TRAILS = 0.5          // * how much of the previous frames lingers (0 = none, 0.8 = long smears)
+const TRAIL_ZOOM = 1.006    // * each lingering frame grows a tiny bit, so trails drift outwards
 const HUE_FROM = 32         // hue starts swinging at beat 32
-const HUE_START = 0.01      // * starting swing: ±0.01 of the colour wheel (≈4°, very slight)
+const HUE_START = 0.06      // * starting swing: ±0.06 of the colour wheel (≈±22°)
 const HUE_GROW = 0.0015     // * added per beat — ≈ ±0.2 after 2½ minutes, ±0.35 after 4½
 const HUE_MAX = 0.5         // ±0.5 = the whole colour wheel
 const HUE_BEATS = 8         // * one swing back and forth every 8 beats
 
 const b = () => Math.max(0, CB(1) || 0)
-const isGreen = () => Math.floor(b() / SWITCH_BEATS) % 2 === 1
+// how much green is showing: fades in from beat 16 (over XFADE_BEATS), out again from beat 32, …
+const ease = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x) }
+const green = () => {
+  const p = b() % (2 * SWITCH_BEATS)
+  if (p >= SWITCH_BEATS) return ease((p - SWITCH_BEATS) / XFADE_BEATS)
+  return b() < 2 * SWITCH_BEATS ? 0 : 1 - ease(p / XFADE_BEATS)
+}
 const range = () => b() < HUE_FROM ? 0 : Math.min(HUE_MAX, HUE_START + (b() - HUE_FROM) * HUE_GROW)
 const hue = () => Math.sin((b() - HUE_FROM) * TAU / HUE_BEATS) * range()
 
+// o1 = the picture with light trails: each frame mixes in a slightly zoomed copy of the last one
 src(L.blue)
-  .blend(src(L.green), () => isGreen() ? 1 : 0)
+  .blend(src(L.green), () => MIN_OPACITY + (1 - 2 * MIN_OPACITY) * green())   // green 0.2 … 0.8, blue 0.8 … 0.2
   .hue(hue)
-  .out()`,
+  .blend(src(o1).scale(TRAIL_ZOOM), TRAILS)
+  .out(o1)
+
+// fine film grain + coarse luminance grain on top (after the trails, so the grain stays crisp)
+grainy(o1, GRAIN, () => Math.floor(time * 24), COARSE, COARSE_SIZE).out()`,
   },
   {
     title: '潮气吹过后山破庙时',
@@ -620,7 +641,7 @@ src(L.blue)
       {
         name: '高潮', at: '3:14', bpm: 69,
         when: '主音吉他和泛音笛的演奏愈发激烈',
-        does: ['Streaked glitch + RGB split, random positions and directions, hitting on every beat'],
+        does: ['Gentle glitch + RGB fringe popping up in small patches here and there, at random moments', 'A bit of RGB split over the whole picture'],
       },
       {
         name: '低落',
@@ -638,8 +659,8 @@ const WASH_OPACITY = 0.1
 const WASH_HUE = 0.08       // * hue swings ±0.08 of the colour wheel (±29°)…
 const WASH_HUE_SECS = 30    // * …once every 30 s (not tied to the beat)
 const GLITCH_IN = 2         // * s, glitch / RGB split come in (scene 3)
-const GLITCH_BASE = 0.25    // * glitch strength between hits
-const GLITCH_STEPS = 4      // new random pattern (positions, direction) 4 times per beat
+const GLITCH_DENSITY = 0.12 // * chance a patch glitches at each of its chances (≈5 of ~40 patches at a time)
+const GLITCH_RATE = 2       // * each patch gets a new chance twice a beat (each at its own random moment)
 const BACK_SECS = 4         // * s, fade back to the opening video (scene 4)
 
 // ---- scene 2: ink mountains at full height, left edge on the screen's left edge, panning until
@@ -660,14 +681,17 @@ const wash = () => solid(WASH[0], WASH[1], WASH[2], WASH_OPACITY)
 // mountains + wash are drawn into o1, so the glitch below can tear the finished picture apart
 pair().layer(wash()).out(o1)
 
-// ---- scene 3: streaked glitch + RGB split (glitchy() in core.js): strongest on each beat,
-//      never fully calm in between; positions, band sizes, direction (horizontal / vertical) and
-//      split direction re-roll GLITCH_STEPS times per beat.
-//      (A flat colour wash can't show a glitch on its own, so it tears mountains + wash.) ----
+// ---- scene 3: gentle glitch in small patches popping up here and there (glitchSpots() in
+//      core.js): each patch has its own random timing, so bursts don't line up with each other or
+//      with the beat, and they're spread evenly over the screen. Short bursts: small band shifts,
+//      sometimes a streak, a slight RGB fringe in a random direction.
+//      (A flat colour wash can't show a glitch on its own, so it acts on mountains + wash.) ----
 const amount = () => smooth(3, GLITCH_IN) * (1 - smooth(4, BACK_SECS))
-const hit = () => amount() * (GLITCH_BASE + (1 - GLITCH_BASE) * Math.exp(-(beats() % 1) * 4))
-const seed = () => Math.floor(beats() * GLITCH_STEPS)
-const mountainScene = glitchy(o1, hit, seed)
+const SPLIT = 0.004         // * a bit of RGB split over the whole picture while the glitch is on
+const glitched = () => glitchSpots(o1, amount, () => beats() * GLITCH_RATE, GLITCH_DENSITY)
+const split = () => SPLIT * amount()
+const mountainScene = glitched().moveBy(split, 0).color(1, 0, 0, 0.5)
+  .add(glitched().moveBy(() => -split(), 0).color(0, 1, 1, 0.5))
 
 // ---- scenes 1 and 4: the misty video; scene 2 fades the mountains in, scene 4 fades them out ----
 src(L.mist)
